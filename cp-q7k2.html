@@ -130,7 +130,7 @@ function renderLogin(){
 }
 
 const TABS = [
-  ['iptv','قنوات IPTV'], ['movies','أفلام'], ['series','مسلسلات'], ['matches','مباريات'], ['cats','القوائم']
+  ['iptv','قنوات IPTV'], ['movies','أفلام'], ['series','مسلسلات'], ['matches','مباريات'], ['ads','إعلانات'], ['cats','القوائم']
 ];
 
 async function render(){
@@ -139,7 +139,7 @@ async function render(){
   app.innerHTML = `<nav class="tabs" role="tablist">${TABS.map(([k,v])=>`<button role="tab" aria-selected="${k===TAB}" data-t="${k}">${v}</button>`).join('')}</nav>
     <div id="flash" class="msg" hidden></div><div id="panel"></div>`;
   app.querySelectorAll('nav.tabs button').forEach(b => b.onclick = () => { TAB=b.dataset.t; editing=null; render(); });
-  ({iptv:renderIptv, movies:renderMovies, series:renderSeries, matches:renderMatches, cats:renderCats})[TAB]();
+  ({iptv:renderIptv, movies:renderMovies, series:renderSeries, matches:renderMatches, ads:renderAds, cats:renderCats})[TAB]();
 }
 
 function catOptions(kind, sel){
@@ -353,6 +353,66 @@ async function renderMatches(){
   const xc=document.getElementById('xc'); if(xc) xc.onclick=()=>{editing=null;render();};
   panel.querySelectorAll('[data-e]').forEach(b=>b.onclick=()=>{editing={table:'matches',row:ms.find(x=>x.id===b.dataset.e)};renderMatches();scrollTo(0,0);});
   panel.querySelectorAll('[data-d]').forEach(b=>b.onclick=()=>{ const x=ms.find(y=>y.id===b.dataset.d); del('matches',x.id,`${x.home_team} × ${x.away_team}`); });
+}
+
+/* ---------------- Ads ---------------- */
+function adState(a){ const n = Date.now();
+  if (!a.is_active) return ['موقوف','off'];
+  if (a.starts_at && Date.parse(a.starts_at) > n) return ['ما بلّش','off'];
+  if (a.ends_at && Date.parse(a.ends_at) <= n) return ['انتهى','off'];
+  return ['شغّال','live']; }
+
+async function renderAds(){
+  const { data: ads } = await sb.from('ads').select('*').order('sort').order('created_at',{ascending:false});
+  const a = editing && editing.table==='ads' ? editing.row : {};
+  document.getElementById('panel').innerHTML = `
+  <section class="card"><h2>${a.id?'تعديل إعلان':'أضف إعلان'}</h2>
+    <p class="small">الإعلان بيطلع أول ما حدا يفتح البرنامج. فوق في شريط بيبيّن قديش ضايل، وزر ✕ بيشتغل بس لما تخلص المدة. إذا في أكثر من إعلان شغّال، البرنامج بيختار واحد كل مرة بالدور.</p>
+    <form class="grid" id="af">
+      <label>اسم الإعلان (للأدمن بس)<input id="a_title" required value="${esc(a.title||'')}" placeholder="مثلاً: مطعم السعادة"></label>
+      <label>المدة (ثانية)<input id="a_dur" type="number" min="3" max="120" required value="${a.duration_sec??10}"></label>
+      <label>الترتيب<input id="a_sort" type="number" value="${a.sort??0}"></label>
+      <label class="wide">ارفع صورة أو فيديو (لحد 50MB)<input id="a_file" type="file" accept="image/jpeg,image/png,image/webp,image/gif,video/mp4,video/webm"></label>
+      <label class="wide">أو حط رابط الصورة/الفيديو<input id="a_url" dir="ltr" value="${esc(a.media_url||'')}" placeholder="https://.../ad.mp4"></label>
+      <label>النوع<select id="a_type"><option value="image" ${a.media_type!=='video'?'selected':''}>صورة</option><option value="video" ${a.media_type==='video'?'selected':''}>فيديو</option></select></label>
+      <label>يبلّش من (اختياري)<input id="a_start" type="datetime-local" value="${toLocalInput(a.starts_at)}"></label>
+      <label>بينتهي (اختياري)<input id="a_end" type="datetime-local" value="${toLocalInput(a.ends_at)}"></label>
+      <label>الحالة<select id="a_act"><option value="1" ${a.is_active!==false?'selected':''}>شغّال</option><option value="0" ${a.is_active===false?'selected':''}>موقوف</option></select></label>
+      <div class="row-actions"><button class="btn" id="a_save">${a.id?'احفظ التعديل':'أضف الإعلان'}</button>${a.id?'<button type="button" class="btn ghost" id="ac">إلغاء</button>':''}</div>
+    </form>
+    <div id="a_prog" class="small" hidden></div></section>
+  <section class="card"><h3>الإعلانات (${(ads||[]).length})</h3><div class="list">${(ads||[]).map(x=>{ const [st,cls]=adState(x); return `
+    <div class="item">${x.media_type==='video'?`<video src="${esc(x.media_url)}" muted preload="metadata" style="width:56px;height:56px;object-fit:cover;border-radius:8px;background:var(--chip)"></video>`:`<img src="${esc(x.media_url)}" alt="" loading="lazy">`}
+      <div class="meta"><div class="t">${esc(x.title)}<span class="chip ${cls==='off'?'off':''}" style="${cls==='live'?'color:var(--accent)':''}">${st}</span><span class="chip">${x.media_type==='video'?'فيديو':'صورة'} · ${x.duration_sec} ث</span></div>
+        <div class="s">${x.starts_at?'من '+esc(fmtWhen(x.starts_at)):''}${x.ends_at?' لحد '+esc(fmtWhen(x.ends_at)):''}${!x.starts_at&&!x.ends_at?'بدون تاريخ انتهاء':''}</div></div>
+      <div class="row-actions"><button class="btn ghost" data-e="${x.id}">تعديل</button><button class="btn danger" data-d="${x.id}">حذف</button></div></div>`; }).join('') || '<div class="empty">ما في إعلانات.</div>'}</div></section>`;
+
+  const fileIn = document.getElementById('a_file');
+  fileIn.onchange = () => { const f = fileIn.files[0]; if (f) a_type.value = f.type.startsWith('video') ? 'video' : 'image'; };
+  af.onsubmit = async ev => { ev.preventDefault();
+    let url = val('a_url');
+    const f = fileIn.files[0];
+    if (f) {
+      if (f.size > 50*1024*1024) return flash('الملف أكبر من 50MB. صغّره أو حط رابط.', 'err');
+      const prog = document.getElementById('a_prog'); prog.hidden = false; prog.textContent = 'جاري رفع الملف…';
+      a_save.disabled = true;
+      const ext = (f.name.split('.').pop() || 'bin').toLowerCase().replace(/[^a-z0-9]/g,'');
+      const path = `${Date.now()}-${Math.random().toString(36).slice(2,8)}.${ext}`;
+      const { error: upErr } = await sb.storage.from('ads').upload(path, f, { contentType: f.type, upsert: false });
+      a_save.disabled = false; prog.hidden = true;
+      if (upErr) return flash('ما انرفع الملف: ' + upErr.message, 'err');
+      url = sb.storage.from('ads').getPublicUrl(path).data.publicUrl;
+    }
+    if (!url) return flash('ارفع ملف أو حط رابط.', 'err');
+    const s = val('a_start'), e = val('a_end');
+    save('ads', { title:val('a_title'), media_type: f ? (f.type.startsWith('video')?'video':'image') : val('a_type'), media_url:url,
+      duration_sec:Number(val('a_dur')||10), sort:Number(val('a_sort')||0),
+      starts_at: s ? new Date(s).toISOString() : null, ends_at: e ? new Date(e).toISOString() : null,
+      is_active: val('a_act')==='1' }, a.id);
+  };
+  const ac=document.getElementById('ac'); if(ac) ac.onclick=()=>{editing=null;render();};
+  panel.querySelectorAll('[data-e]').forEach(b=>b.onclick=()=>{editing={table:'ads',row:ads.find(x=>x.id===b.dataset.e)};renderAds();scrollTo(0,0);});
+  panel.querySelectorAll('[data-d]').forEach(b=>b.onclick=()=>del('ads',b.dataset.d,ads.find(x=>x.id===b.dataset.d).title));
 }
 
 async function renderCats(){
