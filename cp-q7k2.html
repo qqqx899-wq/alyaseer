@@ -130,7 +130,7 @@ function renderLogin(){
 }
 
 const TABS = [
-  ['iptv','قنوات IPTV'], ['movies','أفلام'], ['series','مسلسلات'], ['matches','مباريات'], ['ads','إعلانات'], ['cats','القوائم']
+  ['iptv','قنوات IPTV'], ['movies','أفلام'], ['series','مسلسلات'], ['matches','مباريات'], ['ads','إعلانات'], ['subs','مشتركين'], ['cats','القوائم']
 ];
 
 async function render(){
@@ -139,7 +139,7 @@ async function render(){
   app.innerHTML = `<nav class="tabs" role="tablist">${TABS.map(([k,v])=>`<button role="tab" aria-selected="${k===TAB}" data-t="${k}">${v}</button>`).join('')}</nav>
     <div id="flash" class="msg" hidden></div><div id="panel"></div>`;
   app.querySelectorAll('nav.tabs button').forEach(b => b.onclick = () => { TAB=b.dataset.t; editing=null; render(); });
-  ({iptv:renderIptv, movies:renderMovies, series:renderSeries, matches:renderMatches, ads:renderAds, cats:renderCats})[TAB]();
+  ({iptv:renderIptv, movies:renderMovies, series:renderSeries, matches:renderMatches, ads:renderAds, subs:renderSubs, cats:renderCats})[TAB]();
 }
 
 function catOptions(kind, sel){
@@ -413,6 +413,61 @@ async function renderAds(){
   const ac=document.getElementById('ac'); if(ac) ac.onclick=()=>{editing=null;render();};
   panel.querySelectorAll('[data-e]').forEach(b=>b.onclick=()=>{editing={table:'ads',row:ads.find(x=>x.id===b.dataset.e)};renderAds();scrollTo(0,0);});
   panel.querySelectorAll('[data-d]').forEach(b=>b.onclick=()=>del('ads',b.dataset.d,ads.find(x=>x.id===b.dataset.d).title));
+}
+
+/* ---------------- Subscribers (Xtream) ---------------- */
+const XT_HOST = SUPABASE_URL + '/functions/v1/xtream';
+const genPass = () => { const a = 'abcdefghjkmnpqrstuvwxyz23456789'; let s = ''; const r = crypto.getRandomValues(new Uint32Array(10)); for (const x of r) s += a[x % a.length]; return s; };
+function subState(s){ const n = Date.now();
+  if (!s.is_active) return ['موقوف','off'];
+  if (s.expires_at && Date.parse(s.expires_at) <= n) return ['منتهي','off'];
+  return ['فعّال','live']; }
+function plusMonths(m){ const base = new Date(); base.setMonth(base.getMonth() + m); return toLocalInput(base.toISOString()); }
+async function copyText(t, label){
+  try { await navigator.clipboard.writeText(t); flash('انسخ ' + label + ' ✓'); }
+  catch { flash('ما زبط النسخ تلقائياً. انسخه يدوياً: ' + t, 'err'); }
+}
+
+async function renderSubs(){
+  const { data: subs } = await sb.from('subscribers').select('*').order('created_at',{ascending:false});
+  const s = editing && editing.table==='subscribers' ? editing.row : {};
+  const now = Date.now();
+  const active = (subs||[]).filter(x => subState(x)[1]==='live').length;
+  document.getElementById('panel').innerHTML = `
+  <section class="card"><h2>${s.id?'تعديل مشترك':'أضف مشترك'}</h2>
+    <p class="small">كل مشترك بياخذ يوزر وباسورد، وبيحطهم بأي رسيفر أو برنامج بيدعم <b>Xtream</b>. لما يخلص تاريخ الاشتراك، الباقة بتوقف عنده لحالها.</p>
+    <div class="msg" style="direction:ltr;text-align:left"><b>Host / Server URL:</b> <code>${XT_HOST}</code> <button class="btn ghost" type="button" id="cpHost">نسخ</button></div>
+    <form class="grid" id="sf2">
+      <label>اسم المستخدم<input id="u_name" required pattern="[A-Za-z0-9_.\\-]{3,40}" dir="ltr" value="${esc(s.username||'')}" placeholder="ahmad01"></label>
+      <label>كلمة السر<div class="row-actions"><input id="u_pass" required minlength="4" maxlength="64" dir="ltr" value="${esc(s.password||genPass())}"><button type="button" class="btn ghost" id="u_gen">توليد</button></div></label>
+      <label>ينتهي الاشتراك<input id="u_exp" type="datetime-local" value="${toLocalInput(s.expires_at) || plusMonths(1)}"></label>
+      <div class="row-actions" style="align-self:end"><button type="button" class="btn ghost" data-m="1">شهر</button><button type="button" class="btn ghost" data-m="3">3 شهور</button><button type="button" class="btn ghost" data-m="6">6 شهور</button><button type="button" class="btn ghost" data-m="12">سنة</button></div>
+      <label>عدد الأجهزة<input id="u_max" type="number" min="1" max="10" value="${s.max_connections??1}"></label>
+      <label>الحالة<select id="u_act"><option value="1" ${s.is_active!==false?'selected':''}>فعّال</option><option value="0" ${s.is_active===false?'selected':''}>موقوف</option></select></label>
+      <label class="wide">ملاحظة (اسم الزبون، رقمه…)<input id="u_note" value="${esc(s.note||'')}"></label>
+      <div class="row-actions"><button class="btn">${s.id?'احفظ التعديل':'أضف المشترك'}</button>${s.id?'<button type="button" class="btn ghost" id="uc">إلغاء</button>':''}</div>
+    </form></section>
+  <section class="card"><h3>المشتركين (${(subs||[]).length}، منهم ${active} فعّال)</h3><div class="list">${(subs||[]).map(x=>{ const [st,cls]=subState(x);
+      const days = x.expires_at ? Math.ceil((Date.parse(x.expires_at)-now)/86400000) : null;
+      return `<div class="item"><div class="ph"></div>
+      <div class="meta"><div class="t"><span dir="ltr">${esc(x.username)}</span><span class="chip ${cls==='off'?'off':''}" style="${cls==='live'?'color:var(--accent)':''}">${st}</span>${days!==null&&days>0?`<span class="chip">باقي ${days} يوم</span>`:''}</div>
+        <div class="s">${x.expires_at?'ينتهي '+esc(fmtWhen(x.expires_at)):'بدون تاريخ انتهاء'} · ${x.max_connections} جهاز${x.last_seen_at?' · آخر دخول '+esc(fmtWhen(x.last_seen_at)):''}${x.note?' · '+esc(x.note):''}</div></div>
+      <div class="row-actions"><button class="btn" data-cp="${x.id}">نسخ بيانات الدخول</button><button class="btn ghost" data-e="${x.id}">تعديل</button><button class="btn danger" data-d="${x.id}">حذف</button></div></div>`; }).join('') || '<div class="empty">ما في مشتركين لسا.</div>'}</div></section>`;
+
+  document.getElementById('cpHost').onclick = () => copyText(XT_HOST, 'الهوست');
+  document.getElementById('u_gen').onclick = () => { u_pass.value = genPass(); };
+  panel.querySelectorAll('[data-m]').forEach(b => b.onclick = () => { u_exp.value = plusMonths(Number(b.dataset.m)); });
+  sf2.onsubmit = ev => { ev.preventDefault();
+    const e = val('u_exp');
+    save('subscribers', { username:val('u_name'), password:val('u_pass'), expires_at: e ? new Date(e).toISOString() : null,
+      max_connections:Number(val('u_max')||1), is_active:val('u_act')==='1', note:val('u_note')||null }, s.id);
+  };
+  const uc=document.getElementById('uc'); if(uc) uc.onclick=()=>{editing=null;render();};
+  panel.querySelectorAll('[data-e]').forEach(b=>b.onclick=()=>{editing={table:'subscribers',row:subs.find(x=>x.id===b.dataset.e)};renderSubs();scrollTo(0,0);});
+  panel.querySelectorAll('[data-d]').forEach(b=>b.onclick=()=>del('subscribers',b.dataset.d,subs.find(x=>x.id===b.dataset.d).username));
+  panel.querySelectorAll('[data-cp]').forEach(b=>b.onclick=()=>{ const x = subs.find(y=>y.id===b.dataset.cp);
+    const m3u = `${XT_HOST}/get.php?username=${encodeURIComponent(x.username)}&password=${encodeURIComponent(x.password)}&type=m3u_plus&output=m3u8`;
+    copyText(`اليسير IPTV\nHost: ${XT_HOST}\nUsername: ${x.username}\nPassword: ${x.password}\n${x.expires_at ? 'Expires: ' + new Date(x.expires_at).toLocaleDateString('en-GB') + '\n' : ''}M3U: ${m3u}`, 'بيانات ' + x.username); });
 }
 
 async function renderCats(){
