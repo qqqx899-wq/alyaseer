@@ -1,0 +1,342 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>اليسير · لوحة التحكم</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ccircle cx='50' cy='50' r='46' fill='none' stroke='%23EF233C' stroke-width='6'/%3E%3Ccircle cx='50' cy='50' r='37' fill='%23C8102E'/%3E%3Cpath d='M42 33 L68 50 L42 67 Z' fill='%23fff'/%3E%3C/svg%3E">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@400;500;700&display=swap">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
+<style>
+/* Layout: top bar + tab strip + one working panel (form on top, list below) */
+:root{
+  --bg:#f3f4f7; --panel:#ffffff; --fg:#1b1f2a; --muted:#646b7d; --line:#dde0e8;
+  --accent:#c8102e; --accent-fg:#ffffff; --ok:#1d7a46; --warn:#b26a00; --chip:#eef0f5;
+  --font:"IBM Plex Sans Arabic", "Segoe UI", Tahoma, sans-serif;
+}
+@media (prefers-color-scheme: dark){
+  :root{ --bg:#12141a; --panel:#1b1e27; --fg:#e8eaf0; --muted:#9aa1b2; --line:#2c303c;
+         --accent:#ff3b55; --accent-fg:#ffffff; --ok:#46c27f; --warn:#f0a43a; --chip:#252936; color-scheme:dark }
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--fg);font:15px/1.6 var(--font)}
+header{background:var(--panel);border-bottom:1px solid var(--line);padding-block:12px;padding-inline:max(16px,4vw);display:flex;gap:12px;align-items:center;justify-content:space-between;flex-wrap:wrap}
+.brand{font-weight:700;font-size:20px;display:flex;gap:8px;align-items:center}
+.brand b{color:var(--fg)}
+main{max-width:1100px;margin:0 auto;padding-block:20px;padding-inline:max(16px,4vw)}
+nav.tabs{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:16px}
+nav.tabs button{border:1px solid var(--line);background:var(--panel);color:var(--fg);padding:8px 16px;border-radius:999px;font:inherit;cursor:pointer}
+nav.tabs button[aria-selected="true"]{background:var(--accent);color:var(--accent-fg);border-color:var(--accent)}
+section.card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:18px;margin-bottom:16px}
+h2{margin:0 0 12px;font-size:18px}
+h3{margin:0 0 10px;font-size:16px}
+form.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px;align-items:end}
+label{display:flex;flex-direction:column;gap:4px;font-size:13px;color:var(--muted)}
+input,select,textarea{font:inherit;color:var(--fg);background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:8px 10px;width:100%}
+textarea{min-height:60px;resize:vertical}
+input:focus,select:focus,textarea:focus,button:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+.wide{grid-column:1/-1}
+button.btn{font:inherit;border:0;border-radius:8px;padding:9px 16px;cursor:pointer;background:var(--accent);color:var(--accent-fg);font-weight:500}
+button.ghost{background:var(--chip);color:var(--fg)}
+button.danger{background:transparent;color:var(--accent);border:1px solid var(--accent)}
+.row-actions{display:flex;gap:6px;flex-wrap:wrap}
+.list{display:flex;flex-direction:column;gap:8px}
+.item{display:grid;grid-template-columns:56px 1fr auto;gap:12px;align-items:center;border:1px solid var(--line);border-radius:10px;padding:10px}
+.item img,.ph{width:56px;height:56px;object-fit:cover;border-radius:8px;background:var(--chip)}
+.item .meta{min-width:0}
+.item .t{font-weight:500}
+.item .s{color:var(--muted);font-size:13px;overflow-wrap:anywhere}
+.chip{display:inline-block;background:var(--chip);color:var(--muted);border-radius:999px;padding:1px 10px;font-size:12px;margin-inline-start:6px}
+.chip.off{color:var(--warn)}
+.msg{padding:10px 12px;border-radius:8px;background:var(--chip);margin-bottom:12px}
+.msg.err{color:var(--accent)} .msg.ok{color:var(--ok)}
+.empty{color:var(--muted);padding:12px;text-align:center}
+.login{max-width:420px;margin:8vh auto}
+.small{font-size:13px;color:var(--muted)}
+code{background:var(--chip);padding:1px 6px;border-radius:6px;font-size:13px;overflow-wrap:anywhere}
+@media (max-width:520px){ .item{grid-template-columns:44px 1fr} .item .row-actions{grid-column:1/-1} .item img,.ph{width:44px;height:44px} }
+</style>
+</head>
+<body>
+<header>
+  <div class="brand"><svg viewBox="0 0 100 100" width="40" height="40" aria-hidden="true"><circle cx="50" cy="50" r="46" fill="none" stroke="#EF233C" stroke-width="6"/><circle cx="50" cy="50" r="37" fill="#C8102E"/><path d="M42 33 L68 50 L42 67 Z" fill="#fff"/></svg><span style="display:flex;flex-direction:column;line-height:1.1"><b style="font-size:22px">اليسير</b><small style="font-size:10px;letter-spacing:3px;color:var(--accent)">AL YASEER</small></span><span class="small" style="margin-inline-start:8px">لوحة التحكم</span></div>
+  <div id="who" class="small"></div>
+</header>
+
+<main id="app"><div class="empty">جاري التحميل…</div></main>
+
+<script>
+const SUPABASE_URL = "https://owlydnzauenfxvevxkdv.supabase.co";
+const SUPABASE_KEY = "sb_publishable_wOzEt-_UFOsvxe82NOWQow_C9ijNTng";
+const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+const app = document.getElementById('app');
+const who = document.getElementById('who');
+let TAB = 'iptv';
+let editing = null; // {table, row}
+let CATS = [];
+
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+function flash(text, kind='ok'){ const m=document.getElementById('flash'); if(m){ m.className='msg '+kind; m.textContent=text; m.hidden=false; } }
+
+// Turn a normal GitHub file link into a raw link that players can read
+function toRawGithub(url){
+  try{
+    const u = new URL(url.trim());
+    if(u.hostname === 'github.com'){
+      const p = u.pathname.split('/').filter(Boolean); // owner repo blob branch ...path
+      if(p.length >= 5 && (p[2] === 'blob' || p[2] === 'raw')){
+        return `https://raw.githubusercontent.com/${p[0]}/${p[1]}/${p.slice(3).join('/')}`;
+      }
+    }
+    return url.trim();
+  }catch{ return url.trim(); }
+}
+
+async function boot(){
+  const { data:{ session } } = await sb.auth.getSession();
+  if(!session){ return renderLogin(); }
+  who.innerHTML = `${esc(session.user.email)} · <a href="#" id="logout">خروج</a>`;
+  document.getElementById('logout').onclick = async e => { e.preventDefault(); await sb.auth.signOut(); location.reload(); };
+  const { data: isAdmin } = await sb.rpc('is_admin');
+  if(!isAdmin){
+    app.innerHTML = `<section class="card login"><h2>حسابك لسا مش أدمن</h2>
+      <p>سجّلت الدخول بنجاح، بس الحساب لسا ما انضاف كمسؤول. قول لـ Claude: <b>"عملت حساب"</b> وهو بضيفه.</p>
+      <p class="small">رقم الحساب: <code>${esc(session.user.id)}</code></p></section>`;
+    return;
+  }
+  render();
+}
+
+function renderLogin(){
+  app.innerHTML = `<section class="card login">
+    <h2>تسجيل الدخول</h2>
+    <div id="flash" class="msg" hidden></div>
+    <form id="lf" class="grid" style="grid-template-columns:1fr">
+      <label>الإيميل<input id="le" type="email" required autocomplete="username"></label>
+      <label>كلمة السر<input id="lp" type="password" required minlength="8" autocomplete="current-password"></label>
+      <div class="row-actions"><button class="btn" type="submit">دخول</button>
+      <button class="btn ghost" type="button" id="su">أول مرة؟ اعمل حساب</button></div>
+    </form></section>`;
+  const f = document.getElementById('lf');
+  f.onsubmit = async e => { e.preventDefault();
+    const { error } = await sb.auth.signInWithPassword({ email: le.value, password: lp.value });
+    if(error) return flash('الدخول ما زبط: ' + error.message, 'err');
+    location.reload();
+  };
+  document.getElementById('su').onclick = async () => {
+    if(!f.reportValidity()) return;
+    const opts = location.protocol.startsWith('http') ? { emailRedirectTo: location.origin + location.pathname } : {};
+    const { data, error } = await sb.auth.signUp({ email: le.value, password: lp.value, options: opts });
+    if(error) return flash('ما قدرت أعمل الحساب: ' + error.message, 'err');
+    if(data.session) location.reload();
+    else flash('انعمل الحساب. افتح إيميلك وأكّد الحساب، بعدين ارجع وادخل.', 'ok');
+  };
+}
+
+const TABS = [
+  ['iptv','قنوات IPTV'], ['movies','أفلام'], ['series','مسلسلات'], ['cats','القوائم']
+];
+
+async function render(){
+  const { data: cats } = await sb.from('categories').select('*').order('kind').order('sort');
+  CATS = cats || [];
+  app.innerHTML = `<nav class="tabs" role="tablist">${TABS.map(([k,v])=>`<button role="tab" aria-selected="${k===TAB}" data-t="${k}">${v}</button>`).join('')}</nav>
+    <div id="flash" class="msg" hidden></div><div id="panel"></div>`;
+  app.querySelectorAll('nav.tabs button').forEach(b => b.onclick = () => { TAB=b.dataset.t; editing=null; render(); });
+  ({iptv:renderIptv, movies:renderMovies, series:renderSeries, cats:renderCats})[TAB]();
+}
+
+function catOptions(kind, sel){
+  return `<option value="">بدون قائمة</option>` + CATS.filter(c=>c.kind===kind)
+    .map(c=>`<option value="${c.id}" ${c.id===sel?'selected':''}>${esc(c.name)}</option>`).join('');
+}
+const catName = id => (CATS.find(c=>c.id===id)||{}).name;
+const val = id => { const el=document.getElementById(id); return el ? el.value.trim() : ''; };
+const numOrNull = v => v==='' ? null : Number(v);
+
+async function save(table, row, id){
+  const q = id ? sb.from(table).update(row).eq('id', id) : sb.from(table).insert(row);
+  const { error } = await q;
+  if(error){ flash('ما انحفظ: ' + error.message, 'err'); return false; }
+  editing = null; await render(); flash(id ? 'انعدّل ✓' : 'انضاف ✓'); return true;
+}
+async function del(table, id, label){
+  const p = document.getElementById('panel');
+  const box = document.createElement('div'); box.className='msg err';
+  box.innerHTML = `متأكد بدك تحذف <b>${esc(label)}</b>؟ <button class="btn" id="yes">احذف</button> <button class="btn ghost" id="no">لأ</button>`;
+  p.prepend(box); box.scrollIntoView({behavior:'smooth',block:'center'});
+  box.querySelector('#no').onclick = () => box.remove();
+  box.querySelector('#yes').onclick = async () => {
+    const { error } = await sb.from(table).delete().eq('id', id);
+    if(error) return flash('ما انحذف: ' + error.message, 'err');
+    await render(); flash('انحذف ✓');
+  };
+}
+function itemHtml({img, title, sub, chips='', actions}){
+  return `<div class="item">${img?`<img src="${esc(img)}" alt="" loading="lazy" onerror="this.replaceWith(Object.assign(document.createElement('div'),{className:'ph'}))">`:'<div class="ph"></div>'}
+    <div class="meta"><div class="t">${esc(title)}${chips}</div><div class="s">${sub}</div></div>
+    <div class="row-actions">${actions}</div></div>`;
+}
+
+/* ---------------- IPTV ---------------- */
+async function renderIptv(){
+  const [{ data: pls }, { data: chs }] = await Promise.all([
+    sb.from('playlists').select('*').order('sort').order('created_at'),
+    sb.from('channels').select('*').order('sort').order('created_at')
+  ]);
+  const e = editing && editing.table==='playlists' ? editing.row : {};
+  const c = editing && editing.table==='channels' ? editing.row : {};
+  document.getElementById('panel').innerHTML = `
+  <section class="card"><h2>${e.id?'تعديل رابط IPTV':'رابط IPTV (قائمة M3U)'}</h2>
+    <p class="small">حط أي رابط M3U، ومنها روابط GitHub. إذا حطيت رابط GitHub عادي، بحوّله لحاله لرابط raw.</p>
+    <form class="grid" id="pf">
+      <label>الاسم<input id="p_name" required value="${esc(e.name||'')}" placeholder="مثلاً: قنوات عربية"></label>
+      <label class="wide">الرابط<input id="p_url" required dir="ltr" value="${esc(e.m3u_url||'')}" placeholder="https://github.com/.../index.m3u"></label>
+      <label>الترتيب<input id="p_sort" type="number" value="${e.sort??0}"></label>
+      <label>الحالة<select id="p_act"><option value="1" ${e.is_active!==false?'selected':''}>شغّال</option><option value="0" ${e.is_active===false?'selected':''}>مخفي</option></select></label>
+      <div class="row-actions"><button class="btn">${e.id?'احفظ التعديل':'أضف'}</button>${e.id?'<button type="button" class="btn ghost" id="pc">إلغاء</button>':''}</div>
+    </form></section>
+  <section class="card"><h3>الروابط</h3><div class="list">${(pls||[]).map(p=>itemHtml({
+      title:p.name, sub:`<span dir="ltr">${esc(p.m3u_url)}</span>`,
+      chips: p.is_active?'':'<span class="chip off">مخفي</span>',
+      actions:`<button class="btn ghost" data-ep="${p.id}">تعديل</button><button class="btn danger" data-dp="${p.id}">حذف</button>`
+    })).join('') || '<div class="empty">ما في روابط لسا. أضف أول رابط فوق.</div>'}</div></section>
+  <section class="card"><h2>${c.id?'تعديل قناة':'قناة لحالها (اختياري)'}</h2>
+    <p class="small">إذا بدك تضيف قناة وحدة برابط مباشر، بدون قائمة.</p>
+    <form class="grid" id="cf">
+      <label>اسم القناة<input id="c_name" required value="${esc(c.name||'')}"></label>
+      <label class="wide">رابط البث<input id="c_url" required dir="ltr" value="${esc(c.stream_url||'')}" placeholder="https://.../stream.m3u8"></label>
+      <label>رابط الشعار<input id="c_logo" dir="ltr" value="${esc(c.logo_url||'')}"></label>
+      <label>المجموعة<input id="c_group" value="${esc(c.group_name||'')}" placeholder="أخبار، رياضة…"></label>
+      <label>الترتيب<input id="c_sort" type="number" value="${c.sort??0}"></label>
+      <div class="row-actions"><button class="btn">${c.id?'احفظ التعديل':'أضف القناة'}</button>${c.id?'<button type="button" class="btn ghost" id="cc">إلغاء</button>':''}</div>
+    </form>
+    <div class="list" style="margin-top:12px">${(chs||[]).map(ch=>itemHtml({
+      img:ch.logo_url, title:ch.name, sub:`${ch.group_name?esc(ch.group_name)+' · ':''}<span dir="ltr">${esc(ch.stream_url)}</span>`,
+      actions:`<button class="btn ghost" data-ec="${ch.id}">تعديل</button><button class="btn danger" data-dc="${ch.id}">حذف</button>`
+    })).join('') || '<div class="empty">ما في قنوات منفردة.</div>'}</div></section>`;
+  pf.onsubmit = ev => { ev.preventDefault(); save('playlists', { name:val('p_name'), m3u_url:toRawGithub(val('p_url')), sort:Number(val('p_sort')||0), is_active:val('p_act')==='1' }, e.id); };
+  cf.onsubmit = ev => { ev.preventDefault(); save('channels', { name:val('c_name'), stream_url:val('c_url'), logo_url:val('c_logo')||null, group_name:val('c_group')||null, sort:Number(val('c_sort')||0) }, c.id); };
+  const pc=document.getElementById('pc'); if(pc) pc.onclick=()=>{editing=null;render();};
+  const cc=document.getElementById('cc'); if(cc) cc.onclick=()=>{editing=null;render();};
+  panel.querySelectorAll('[data-ep]').forEach(b=>b.onclick=()=>{editing={table:'playlists',row:pls.find(x=>x.id===b.dataset.ep)};renderIptv();scrollTo(0,0);});
+  panel.querySelectorAll('[data-dp]').forEach(b=>b.onclick=()=>del('playlists',b.dataset.dp,pls.find(x=>x.id===b.dataset.dp).name));
+  panel.querySelectorAll('[data-ec]').forEach(b=>b.onclick=()=>{editing={table:'channels',row:chs.find(x=>x.id===b.dataset.ec)};renderIptv();});
+  panel.querySelectorAll('[data-dc]').forEach(b=>b.onclick=()=>del('channels',b.dataset.dc,chs.find(x=>x.id===b.dataset.dc).name));
+}
+
+/* ---------------- Movies ---------------- */
+async function renderMovies(){
+  const { data: mv } = await sb.from('movies').select('*').order('created_at',{ascending:false});
+  const m = editing && editing.table==='movies' ? editing.row : {};
+  document.getElementById('panel').innerHTML = `
+  <section class="card"><h2>${m.id?'تعديل فيلم':'أضف فيلم'}</h2>
+    <form class="grid" id="mf">
+      <label>اسم الفيلم<input id="m_title" required value="${esc(m.title||'')}"></label>
+      <label>السنة<input id="m_year" type="number" min="1900" max="2100" value="${m.year??''}"></label>
+      <label>القائمة<select id="m_cat">${catOptions('movie', m.category_id)}</select></label>
+      <label class="wide">رابط الفيديو<input id="m_video" required dir="ltr" value="${esc(m.video_url||'')}" placeholder="https://.../movie.mp4 أو .m3u8"></label>
+      <label class="wide">رابط صورة البوستر<input id="m_poster" dir="ltr" value="${esc(m.poster_url||'')}"></label>
+      <label class="wide">الوصف<textarea id="m_desc">${esc(m.description||'')}</textarea></label>
+      <label>الحالة<select id="m_pub"><option value="1" ${m.is_published!==false?'selected':''}>ظاهر بالبرنامج</option><option value="0" ${m.is_published===false?'selected':''}>مخفي</option></select></label>
+      <div class="row-actions"><button class="btn">${m.id?'احفظ التعديل':'أضف الفيلم'}</button>${m.id?'<button type="button" class="btn ghost" id="mc">إلغاء</button>':''}</div>
+    </form></section>
+  <section class="card"><h3>الأفلام (${(mv||[]).length})</h3><div class="list">${(mv||[]).map(x=>itemHtml({
+      img:x.poster_url, title:x.title + (x.year?` (${x.year})`:''),
+      chips:(catName(x.category_id)?`<span class="chip">${esc(catName(x.category_id))}</span>`:'') + (x.is_published?'':'<span class="chip off">مخفي</span>'),
+      sub:`<span dir="ltr">${esc(x.video_url)}</span>`,
+      actions:`<button class="btn ghost" data-e="${x.id}">تعديل</button><button class="btn danger" data-d="${x.id}">حذف</button>`
+    })).join('') || '<div class="empty">ما في أفلام لسا.</div>'}</div></section>`;
+  mf.onsubmit = ev => { ev.preventDefault(); save('movies', { title:val('m_title'), year:numOrNull(val('m_year')), category_id:val('m_cat')||null, video_url:val('m_video'), poster_url:val('m_poster')||null, description:val('m_desc')||null, is_published:val('m_pub')==='1' }, m.id); };
+  const mc=document.getElementById('mc'); if(mc) mc.onclick=()=>{editing=null;render();};
+  panel.querySelectorAll('[data-e]').forEach(b=>b.onclick=()=>{editing={table:'movies',row:mv.find(x=>x.id===b.dataset.e)};renderMovies();scrollTo(0,0);});
+  panel.querySelectorAll('[data-d]').forEach(b=>b.onclick=()=>del('movies',b.dataset.d,mv.find(x=>x.id===b.dataset.d).title));
+}
+
+/* ---------------- Series ---------------- */
+let OPEN_SERIES = null;
+async function renderSeries(){
+  const { data: sr } = await sb.from('series').select('*, episodes(count)').order('created_at',{ascending:false});
+  const s = editing && editing.table==='series' ? editing.row : {};
+  document.getElementById('panel').innerHTML = `
+  <section class="card"><h2>${s.id?'تعديل مسلسل':'أضف مسلسل'}</h2>
+    <form class="grid" id="sf">
+      <label>اسم المسلسل<input id="s_title" required value="${esc(s.title||'')}"></label>
+      <label>السنة<input id="s_year" type="number" min="1900" max="2100" value="${s.year??''}"></label>
+      <label>القائمة<select id="s_cat">${catOptions('series', s.category_id)}</select></label>
+      <label class="wide">رابط صورة البوستر<input id="s_poster" dir="ltr" value="${esc(s.poster_url||'')}"></label>
+      <label class="wide">الوصف<textarea id="s_desc">${esc(s.description||'')}</textarea></label>
+      <label>الحالة<select id="s_pub"><option value="1" ${s.is_published!==false?'selected':''}>ظاهر بالبرنامج</option><option value="0" ${s.is_published===false?'selected':''}>مخفي</option></select></label>
+      <div class="row-actions"><button class="btn">${s.id?'احفظ التعديل':'أضف المسلسل'}</button>${s.id?'<button type="button" class="btn ghost" id="sc">إلغاء</button>':''}</div>
+    </form></section>
+  <section class="card"><h3>المسلسلات (${(sr||[]).length})</h3><div class="list">${(sr||[]).map(x=>itemHtml({
+      img:x.poster_url, title:x.title + (x.year?` (${x.year})`:''),
+      chips:(catName(x.category_id)?`<span class="chip">${esc(catName(x.category_id))}</span>`:'') + (x.is_published?'':'<span class="chip off">مخفي</span>'),
+      sub:`${(x.episodes?.[0]?.count)||0} حلقة`,
+      actions:`<button class="btn" data-o="${x.id}">الحلقات</button><button class="btn ghost" data-e="${x.id}">تعديل</button><button class="btn danger" data-d="${x.id}">حذف</button>`
+    })).join('') || '<div class="empty">ما في مسلسلات لسا.</div>'}</div></section>
+  <div id="eps"></div>`;
+  sf.onsubmit = ev => { ev.preventDefault(); save('series', { title:val('s_title'), year:numOrNull(val('s_year')), category_id:val('s_cat')||null, poster_url:val('s_poster')||null, description:val('s_desc')||null, is_published:val('s_pub')==='1' }, s.id); };
+  const sc=document.getElementById('sc'); if(sc) sc.onclick=()=>{editing=null;render();};
+  panel.querySelectorAll('[data-e]').forEach(b=>b.onclick=()=>{editing={table:'series',row:sr.find(x=>x.id===b.dataset.e)};renderSeries();scrollTo(0,0);});
+  panel.querySelectorAll('[data-d]').forEach(b=>b.onclick=()=>del('series',b.dataset.d,sr.find(x=>x.id===b.dataset.d).title+' وكل حلقاته'));
+  panel.querySelectorAll('[data-o]').forEach(b=>b.onclick=()=>{OPEN_SERIES=sr.find(x=>x.id===b.dataset.o);renderEpisodes();});
+  if(OPEN_SERIES && sr.some(x=>x.id===OPEN_SERIES.id)) renderEpisodes();
+}
+async function renderEpisodes(){
+  const ser = OPEN_SERIES;
+  const { data: eps } = await sb.from('episodes').select('*').eq('series_id', ser.id).order('season').order('episode');
+  const e = editing && editing.table==='episodes' ? editing.row : {};
+  const last = (eps||[]).at(-1);
+  const box = document.getElementById('eps');
+  box.innerHTML = `<section class="card"><h2>حلقات: ${esc(ser.title)}</h2>
+    <form class="grid" id="ef">
+      <label>الموسم<input id="e_season" type="number" min="1" required value="${e.season ?? (last?last.season:1)}"></label>
+      <label>رقم الحلقة<input id="e_ep" type="number" min="0" required value="${e.episode ?? (last?last.episode+1:1)}"></label>
+      <label>العنوان (اختياري)<input id="e_title" value="${esc(e.title||'')}"></label>
+      <label class="wide">رابط الفيديو<input id="e_video" required dir="ltr" value="${esc(e.video_url||'')}"></label>
+      <div class="row-actions"><button class="btn">${e.id?'احفظ التعديل':'أضف الحلقة'}</button>${e.id?'<button type="button" class="btn ghost" id="ec">إلغاء</button>':''}</div>
+    </form>
+    <div class="list" style="margin-top:12px">${(eps||[]).map(x=>itemHtml({
+      title:`موسم ${x.season} · حلقة ${x.episode}${x.title?' — '+x.title:''}`, sub:`<span dir="ltr">${esc(x.video_url)}</span>`,
+      actions:`<button class="btn ghost" data-ee="${x.id}">تعديل</button><button class="btn danger" data-de="${x.id}">حذف</button>`
+    })).join('') || '<div class="empty">ما في حلقات لسا.</div>'}</div></section>`;
+  box.scrollIntoView({behavior:'smooth'});
+  ef.onsubmit = async ev => { ev.preventDefault();
+    const row = { series_id:ser.id, season:Number(val('e_season')), episode:Number(val('e_ep')), title:val('e_title')||null, video_url:val('e_video') };
+    const q = e.id ? sb.from('episodes').update(row).eq('id', e.id) : sb.from('episodes').insert(row);
+    const { error } = await q;
+    if(error) return flash(error.code==='23505' ? 'هاي الحلقة موجودة بنفس الموسم والرقم.' : 'ما انحفظت: '+error.message, 'err');
+    editing=null; await renderSeries(); flash('انحفظت الحلقة ✓');
+  };
+  const ec=document.getElementById('ec'); if(ec) ec.onclick=()=>{editing=null;renderEpisodes();};
+  box.querySelectorAll('[data-ee]').forEach(b=>b.onclick=()=>{editing={table:'episodes',row:eps.find(x=>x.id===b.dataset.ee)};renderEpisodes();});
+  box.querySelectorAll('[data-de]').forEach(b=>b.onclick=async()=>{ const x=eps.find(y=>y.id===b.dataset.de); await del('episodes',x.id,`موسم ${x.season} حلقة ${x.episode}`); });
+}
+
+/* ---------------- Categories ---------------- */
+async function renderCats(){
+  const c = editing && editing.table==='categories' ? editing.row : {};
+  document.getElementById('panel').innerHTML = `
+  <section class="card"><h2>${c.id?'تعديل قائمة':'أضف قائمة جديدة'}</h2>
+    <p class="small">القوائم بتطلع كصفوف بالبرنامج، مثل "أكشن" أو "رمضان".</p>
+    <form class="grid" id="kf">
+      <label>اسم القائمة<input id="k_name" required value="${esc(c.name||'')}"></label>
+      <label>النوع<select id="k_kind"><option value="movie" ${c.kind!=='series'?'selected':''}>أفلام</option><option value="series" ${c.kind==='series'?'selected':''}>مسلسلات</option></select></label>
+      <label>الترتيب<input id="k_sort" type="number" value="${c.sort??0}"></label>
+      <div class="row-actions"><button class="btn">${c.id?'احفظ':'أضف القائمة'}</button>${c.id?'<button type="button" class="btn ghost" id="kc">إلغاء</button>':''}</div>
+    </form></section>
+  <section class="card"><h3>القوائم</h3><div class="list">${CATS.map(x=>itemHtml({
+      title:x.name, chips:`<span class="chip">${x.kind==='movie'?'أفلام':'مسلسلات'}</span>`, sub:`ترتيب ${x.sort}`,
+      actions:`<button class="btn ghost" data-e="${x.id}">تعديل</button><button class="btn danger" data-d="${x.id}">حذف</button>`
+    })).join('') || '<div class="empty">ما في قوائم.</div>'}</div></section>`;
+  kf.onsubmit = ev => { ev.preventDefault(); save('categories', { name:val('k_name'), kind:val('k_kind'), sort:Number(val('k_sort')||0) }, c.id); };
+  const kc=document.getElementById('kc'); if(kc) kc.onclick=()=>{editing=null;render();};
+  panel.querySelectorAll('[data-e]').forEach(b=>b.onclick=()=>{editing={table:'categories',row:CATS.find(x=>x.id===b.dataset.e)};renderCats();});
+  panel.querySelectorAll('[data-d]').forEach(b=>b.onclick=()=>del('categories',b.dataset.d,CATS.find(x=>x.id===b.dataset.d).name));
+}
+
+boot().catch(e => { app.innerHTML = `<section class="card"><div class="msg err">صار خطأ: ${esc(e.message)}</div></section>`; });
+</script>
+</body>
+</html>
