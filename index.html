@@ -59,7 +59,7 @@ code{background:var(--chip);padding:1px 6px;border-radius:6px;font-size:13px;ove
 </head>
 <body>
 <header>
-  <div class="brand"><svg viewBox="0 0 100 100" width="40" height="40" aria-hidden="true"><circle cx="50" cy="50" r="46" fill="none" stroke="#EF233C" stroke-width="6"/><circle cx="50" cy="50" r="37" fill="#C8102E"/><path d="M42 33 L68 50 L42 67 Z" fill="#fff"/></svg><span style="display:flex;flex-direction:column;line-height:1.1"><b style="font-size:22px">اليسير</b><small style="font-size:10px;letter-spacing:3px;color:var(--accent)">AL YASEER</small></span><span class="small" style="margin-inline-start:8px">لوحة التحكم</span></div>
+  <div class="brand"><svg viewBox="0 0 100 100" width="40" height="40" aria-hidden="true"><circle cx="50" cy="50" r="46" fill="none" stroke="#EF233C" stroke-width="6"/><circle cx="50" cy="50" r="37" fill="#C8102E"/><text x="50" y="55" text-anchor="middle" direction="rtl" font-family="IBM Plex Sans Arabic, Segoe UI, sans-serif" font-weight="700" font-size="30" fill="#fff">ق ع</text><path d="M46 66 L56 71.5 L46 77 Z" fill="#fff"/></svg><span style="display:flex;flex-direction:column;line-height:1.1"><b style="font-size:22px">اليسير</b><small style="font-size:12px;color:var(--accent);border-top:1px solid var(--line);padding-top:2px;margin-top:2px">قصي • عيسى</small></span><span class="small" style="margin-inline-start:8px">لوحة التحكم</span></div>
   <div id="who" class="small"></div>
 </header>
 
@@ -95,41 +95,37 @@ function toRawGithub(url){
 async function boot(){
   const { data:{ session } } = await sb.auth.getSession();
   if(!session){ return renderLogin(); }
-  who.innerHTML = `${esc(session.user.email)} · <a href="#" id="logout">خروج</a>`;
-  document.getElementById('logout').onclick = async e => { e.preventDefault(); await sb.auth.signOut(); location.reload(); };
   const { data: isAdmin } = await sb.rpc('is_admin');
   if(!isAdmin){
-    app.innerHTML = `<section class="card login"><h2>حسابك لسا مش أدمن</h2>
-      <p>سجّلت الدخول بنجاح، بس الحساب لسا ما انضاف كمسؤول. قول لـ Claude: <b>"عملت حساب"</b> وهو بضيفه.</p>
-      <p class="small">رقم الحساب: <code>${esc(session.user.id)}</code></p></section>`;
+    // Not an admin account: sign out straight away and show the login again
+    await sb.auth.signOut();
+    renderLogin();
+    flash('هذا الحساب مش مسموح له يدخل لوحة التحكم.', 'err');
     return;
   }
+  const uname = (session.user.email || '').replace(/@alyaseer\.app$/, '');
+  who.innerHTML = `${esc(uname)} · <a href="#" id="logout">خروج</a>`;
+  document.getElementById('logout').onclick = async e => { e.preventDefault(); await sb.auth.signOut(); location.reload(); };
   render();
 }
 
+// Usernames map to an internal address, e.g. qusaiiptv -> qusaiiptv@alyaseer.app
+const toLogin = u => { u = u.trim().toLowerCase(); return u.includes('@') ? u : u + '@alyaseer.app'; };
+
 function renderLogin(){
   app.innerHTML = `<section class="card login">
-    <h2>تسجيل الدخول</h2>
+    <h2>دخول الأدمن</h2>
     <div id="flash" class="msg" hidden></div>
     <form id="lf" class="grid" style="grid-template-columns:1fr">
-      <label>الإيميل<input id="le" type="email" required autocomplete="username"></label>
-      <label>كلمة السر<input id="lp" type="password" required minlength="8" autocomplete="current-password"></label>
-      <div class="row-actions"><button class="btn" type="submit">دخول</button>
-      <button class="btn ghost" type="button" id="su">أول مرة؟ اعمل حساب</button></div>
+      <label>اسم المستخدم<input id="le" type="text" required autocomplete="username" autocapitalize="off" spellcheck="false" dir="ltr"></label>
+      <label>كلمة السر<input id="lp" type="password" required autocomplete="current-password" dir="ltr"></label>
+      <div class="row-actions"><button class="btn" type="submit">دخول</button></div>
     </form></section>`;
   const f = document.getElementById('lf');
   f.onsubmit = async e => { e.preventDefault();
-    const { error } = await sb.auth.signInWithPassword({ email: le.value, password: lp.value });
-    if(error) return flash('الدخول ما زبط: ' + error.message, 'err');
-    location.reload();
-  };
-  document.getElementById('su').onclick = async () => {
-    if(!f.reportValidity()) return;
-    const opts = location.protocol.startsWith('http') ? { emailRedirectTo: location.origin + location.pathname } : {};
-    const { data, error } = await sb.auth.signUp({ email: le.value, password: lp.value, options: opts });
-    if(error) return flash('ما قدرت أعمل الحساب: ' + error.message, 'err');
-    if(data.session) location.reload();
-    else flash('انعمل الحساب. افتح إيميلك وأكّد الحساب، بعدين ارجع وادخل.', 'ok');
+    const { error } = await sb.auth.signInWithPassword({ email: toLogin(le.value), password: lp.value });
+    if(error) return flash('اسم المستخدم أو كلمة السر غلط.', 'err');
+    boot();
   };
 }
 
