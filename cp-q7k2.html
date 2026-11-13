@@ -130,7 +130,7 @@ function renderLogin(){
 }
 
 const TABS = [
-  ['iptv','قنوات IPTV'], ['movies','أفلام'], ['series','مسلسلات'], ['cats','القوائم']
+  ['iptv','قنوات IPTV'], ['movies','أفلام'], ['series','مسلسلات'], ['matches','مباريات'], ['cats','القوائم']
 ];
 
 async function render(){
@@ -139,7 +139,7 @@ async function render(){
   app.innerHTML = `<nav class="tabs" role="tablist">${TABS.map(([k,v])=>`<button role="tab" aria-selected="${k===TAB}" data-t="${k}">${v}</button>`).join('')}</nav>
     <div id="flash" class="msg" hidden></div><div id="panel"></div>`;
   app.querySelectorAll('nav.tabs button').forEach(b => b.onclick = () => { TAB=b.dataset.t; editing=null; render(); });
-  ({iptv:renderIptv, movies:renderMovies, series:renderSeries, cats:renderCats})[TAB]();
+  ({iptv:renderIptv, movies:renderMovies, series:renderSeries, matches:renderMatches, cats:renderCats})[TAB]();
 }
 
 function catOptions(kind, sel){
@@ -311,6 +311,50 @@ async function renderEpisodes(){
 }
 
 /* ---------------- Categories ---------------- */
+/* ---------------- Matches ---------------- */
+// datetime-local works in the browser's local time; the DB keeps UTC
+const toLocalInput = iso => { if(!iso) return ''; const d = new Date(iso); const p = n => String(n).padStart(2,'0');
+  return `${d.getFullYear()}-${p(d.getMonth()+1)}-${p(d.getDate())}T${p(d.getHours())}:${p(d.getMinutes())}`; };
+const fmtWhen = iso => new Date(iso).toLocaleString('ar', { weekday:'short', day:'numeric', month:'short', hour:'2-digit', minute:'2-digit' });
+function matchState(m){ const s = new Date(m.starts_at).getTime(), e = s + m.duration_min*60000, n = Date.now();
+  return n > e ? ['انتهت','off'] : n >= s - 600000 ? ['مباشر','live'] : ['قادمة','']; }
+
+async function renderMatches(){
+  const since = new Date(Date.now() - 2*86400000).toISOString();
+  const { data: ms } = await sb.from('matches').select('*').gte('starts_at', since).order('starts_at');
+  const m = editing && editing.table==='matches' ? editing.row : {};
+  document.getElementById('panel').innerHTML = `
+  <section class="card"><h2>${m.id?'تعديل مباراة':'أضف مباراة'}</h2>
+    <p class="small">المباراة بتطلع بالبرنامج بخانة "مباريات"، وبتصير "مباشر الآن" قبل البداية بـ 10 دقايق، وبتختفي لما تخلص.</p>
+    <form class="grid" id="xf">
+      <label>الفريق الأول<input id="x_home" required value="${esc(m.home_team||'')}"></label>
+      <label>الفريق الثاني<input id="x_away" required value="${esc(m.away_team||'')}"></label>
+      <label>البطولة<input id="x_comp" value="${esc(m.competition||'')}" placeholder="مثلاً: الدوري الأردني"></label>
+      <label>وقت البداية<input id="x_start" type="datetime-local" required value="${toLocalInput(m.starts_at)}"></label>
+      <label>المدة (دقيقة)<input id="x_dur" type="number" min="10" max="600" value="${m.duration_min??120}"></label>
+      <label>اسم القناة<input id="x_ch" value="${esc(m.channel_name||'')}"></label>
+      <label class="wide">رابط البث<input id="x_url" required dir="ltr" value="${esc(m.stream_url||'')}" placeholder="https://.../live.m3u8"></label>
+      <label>شعار الفريق الأول (رابط)<input id="x_hl" dir="ltr" value="${esc(m.home_logo||'')}"></label>
+      <label>شعار الفريق الثاني (رابط)<input id="x_al" dir="ltr" value="${esc(m.away_logo||'')}"></label>
+      <label>الحالة<select id="x_pub"><option value="1" ${m.is_published!==false?'selected':''}>ظاهرة بالبرنامج</option><option value="0" ${m.is_published===false?'selected':''}>مخفية</option></select></label>
+      <div class="row-actions"><button class="btn">${m.id?'احفظ التعديل':'أضف المباراة'}</button>${m.id?'<button type="button" class="btn ghost" id="xc">إلغاء</button>':''}</div>
+    </form></section>
+  <section class="card"><h3>المباريات (آخر يومين والقادمة)</h3><div class="list">${(ms||[]).map(x=>{ const [st,cls]=matchState(x); return itemHtml({
+      img:x.home_logo, title:`${x.home_team} × ${x.away_team}`,
+      chips:`<span class="chip ${cls==='off'?'off':''}" style="${cls==='live'?'color:var(--accent)':''}">${st}</span>` + (x.is_published?'':'<span class="chip off">مخفية</span>'),
+      sub:`${esc(fmtWhen(x.starts_at))}${x.channel_name?' · '+esc(x.channel_name):''}${x.competition?' · '+esc(x.competition):''}`,
+      actions:`<button class="btn ghost" data-e="${x.id}">تعديل</button><button class="btn danger" data-d="${x.id}">حذف</button>`
+    }); }).join('') || '<div class="empty">ما في مباريات. أضف أول مباراة فوق.</div>'}</div></section>`;
+  xf.onsubmit = ev => { ev.preventDefault();
+    save('matches', { home_team:val('x_home'), away_team:val('x_away'), competition:val('x_comp')||null,
+      starts_at:new Date(val('x_start')).toISOString(), duration_min:Number(val('x_dur')||120),
+      channel_name:val('x_ch')||null, stream_url:val('x_url'), home_logo:val('x_hl')||null, away_logo:val('x_al')||null,
+      is_published:val('x_pub')==='1' }, m.id); };
+  const xc=document.getElementById('xc'); if(xc) xc.onclick=()=>{editing=null;render();};
+  panel.querySelectorAll('[data-e]').forEach(b=>b.onclick=()=>{editing={table:'matches',row:ms.find(x=>x.id===b.dataset.e)};renderMatches();scrollTo(0,0);});
+  panel.querySelectorAll('[data-d]').forEach(b=>b.onclick=()=>{ const x=ms.find(y=>y.id===b.dataset.d); del('matches',x.id,`${x.home_team} × ${x.away_team}`); });
+}
+
 async function renderCats(){
   const c = editing && editing.table==='categories' ? editing.row : {};
   document.getElementById('panel').innerHTML = `
