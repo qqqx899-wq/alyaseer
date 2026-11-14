@@ -416,7 +416,7 @@ async function renderAds(){
 }
 
 /* ---------------- Subscribers (Xtream) ---------------- */
-const XT_HOST = SUPABASE_URL + '/functions/v1/xtream';
+const XT_HOST = 'http://tv.alyaseer.workers.dev';
 const genPass = () => { const a = 'abcdefghjkmnpqrstuvwxyz23456789'; let s = ''; const r = crypto.getRandomValues(new Uint32Array(10)); for (const x of r) s += a[x % a.length]; return s; };
 function subState(s){ const n = Date.now();
   if (!s.is_active) return ['موقوف','off'];
@@ -466,7 +466,7 @@ async function renderSubs(){
   panel.querySelectorAll('[data-e]').forEach(b=>b.onclick=()=>{editing={table:'subscribers',row:subs.find(x=>x.id===b.dataset.e)};renderSubs();scrollTo(0,0);});
   panel.querySelectorAll('[data-d]').forEach(b=>b.onclick=()=>del('subscribers',b.dataset.d,subs.find(x=>x.id===b.dataset.d).username));
   panel.querySelectorAll('[data-cp]').forEach(b=>b.onclick=()=>{ const x = subs.find(y=>y.id===b.dataset.cp);
-    const m3u = `${XT_HOST}/get.php?username=${encodeURIComponent(x.username)}&password=${encodeURIComponent(x.password)}&type=m3u_plus&output=m3u8`;
+    const m3u = `${XT_HOST}/get.php?username=${encodeURIComponent(x.username)}&password=${encodeURIComponent(x.password)}&type=m3u_plus&output=ts`;
     copyText(`اليسير IPTV\nHost: ${XT_HOST}\nUsername: ${x.username}\nPassword: ${x.password}\n${x.expires_at ? 'Expires: ' + new Date(x.expires_at).toLocaleDateString('en-GB') + '\n' : ''}M3U: ${m3u}`, 'بيانات ' + x.username); });
 }
 
