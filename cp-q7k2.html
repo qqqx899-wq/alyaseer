@@ -183,18 +183,19 @@ async function renderIptv(){
   const e = editing && editing.table==='playlists' ? editing.row : {};
   const c = editing && editing.table==='channels' ? editing.row : {};
   document.getElementById('panel').innerHTML = `
-  <section class="card"><h2>${e.id?'تعديل رابط IPTV':'رابط IPTV (قائمة M3U)'}</h2>
-    <p class="small">حط أي رابط M3U، ومنها روابط GitHub. إذا حطيت رابط GitHub عادي، بحوّله لحاله لرابط raw.</p>
+  <section class="card"><h2>${e.id?'تعديل رابط قائمة':'رابط قائمة M3U (قنوات أو أفلام)'}</h2>
+    <p class="small">حط أي رابط M3U، ومنها روابط GitHub. إذا حطيت رابط GitHub عادي، بحوّله لحاله لرابط raw.<br>اختار <b>أفلام</b> إذا القائمة فيها أفلام: بتطلع بقسم الأفلام عند المشتركين، ومقسّمة حسب group-title بالقائمة.</p>
     <form class="grid" id="pf">
       <label>الاسم<input id="p_name" required value="${esc(e.name||'')}" placeholder="مثلاً: قنوات عربية"></label>
       <label class="wide">الرابط<input id="p_url" required dir="ltr" value="${esc(e.m3u_url||'')}" placeholder="https://github.com/.../index.m3u"></label>
+      <label>النوع<select id="p_kind"><option value="live" ${e.kind!=='movie'?'selected':''}>قنوات بث مباشر</option><option value="movie" ${e.kind==='movie'?'selected':''}>أفلام</option></select></label>
       <label>الترتيب<input id="p_sort" type="number" value="${e.sort??0}"></label>
       <label>الحالة<select id="p_act"><option value="1" ${e.is_active!==false?'selected':''}>شغّال</option><option value="0" ${e.is_active===false?'selected':''}>مخفي</option></select></label>
       <div class="row-actions"><button class="btn">${e.id?'احفظ التعديل':'أضف'}</button>${e.id?'<button type="button" class="btn ghost" id="pc">إلغاء</button>':''}</div>
     </form></section>
   <section class="card"><h3>الروابط</h3><div class="list">${(pls||[]).map(p=>itemHtml({
       title:p.name, sub:`<span dir="ltr">${esc(p.m3u_url)}</span>`,
-      chips: p.is_active?'':'<span class="chip off">مخفي</span>',
+      chips: (p.kind==='movie'?'<span class="chip">أفلام</span>':'<span class="chip">قنوات</span>') + (p.is_active?'':'<span class="chip off">مخفي</span>'),
       actions:`<button class="btn ghost" data-ep="${p.id}">تعديل</button><button class="btn danger" data-dp="${p.id}">حذف</button>`
     })).join('') || '<div class="empty">ما في روابط لسا. أضف أول رابط فوق.</div>'}</div></section>
   <section class="card"><h2>${c.id?'تعديل قناة':'قناة لحالها (اختياري)'}</h2>
@@ -211,7 +212,7 @@ async function renderIptv(){
       img:ch.logo_url, title:ch.name, sub:`${ch.group_name?esc(ch.group_name)+' · ':''}<span dir="ltr">${esc(ch.stream_url)}</span>`,
       actions:`<button class="btn ghost" data-ec="${ch.id}">تعديل</button><button class="btn danger" data-dc="${ch.id}">حذف</button>`
     })).join('') || '<div class="empty">ما في قنوات منفردة.</div>'}</div></section>`;
-  pf.onsubmit = ev => { ev.preventDefault(); save('playlists', { name:val('p_name'), m3u_url:toRawGithub(val('p_url')), sort:Number(val('p_sort')||0), is_active:val('p_act')==='1' }, e.id); };
+  pf.onsubmit = ev => { ev.preventDefault(); save('playlists', { name:val('p_name'), m3u_url:toRawGithub(val('p_url')), kind:val('p_kind'), sort:Number(val('p_sort')||0), is_active:val('p_act')==='1' }, e.id); };
   cf.onsubmit = ev => { ev.preventDefault(); save('channels', { name:val('c_name'), stream_url:val('c_url'), logo_url:val('c_logo')||null, group_name:val('c_group')||null, sort:Number(val('c_sort')||0) }, c.id); };
   const pc=document.getElementById('pc'); if(pc) pc.onclick=()=>{editing=null;render();};
   const cc=document.getElementById('cc'); if(cc) cc.onclick=()=>{editing=null;render();};
