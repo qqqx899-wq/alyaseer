@@ -7,6 +7,7 @@
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ccircle cx='50' cy='50' r='46' fill='none' stroke='%23EF233C' stroke-width='6'/%3E%3Ccircle cx='50' cy='50' r='37' fill='%23C8102E'/%3E%3Cpath d='M42 33 L68 50 L42 67 Z' fill='%23fff'/%3E%3C/svg%3E">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@400;500;700&display=swap">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
+<script src="https://lists.alyaseer.workers.dev/chmgr.js"></script>
 <style>
 /* Layout: top bar + tab strip + one working panel (form on top, list below) */
 :root{
@@ -130,7 +131,7 @@ function renderLogin(){
 }
 
 const TABS = [
-  ['iptv','قنوات IPTV'], ['movies','أفلام'], ['series','مسلسلات'], ['matches','مباريات'], ['ads','إعلانات'], ['subs','مشتركين'], ['cats','القوائم']
+  ['chmgr','إدارة القنوات'], ['iptv','قنوات IPTV'], ['movies','أفلام'], ['series','مسلسلات'], ['matches','مباريات'], ['ads','إعلانات'], ['subs','مشتركين'], ['cats','القوائم']
 ];
 
 async function render(){
@@ -139,7 +140,7 @@ async function render(){
   app.innerHTML = `<nav class="tabs" role="tablist">${TABS.map(([k,v])=>`<button role="tab" aria-selected="${k===TAB}" data-t="${k}">${v}</button>`).join('')}</nav>
     <div id="flash" class="msg" hidden></div><div id="panel"></div>`;
   app.querySelectorAll('nav.tabs button').forEach(b => b.onclick = () => { TAB=b.dataset.t; editing=null; render(); });
-  ({iptv:renderIptv, movies:renderMovies, series:renderSeries, matches:renderMatches, ads:renderAds, subs:renderSubs, cats:renderCats})[TAB]();
+  ({chmgr:renderChannelMgr, iptv:renderIptv, movies:renderMovies, series:renderSeries, matches:renderMatches, ads:renderAds, subs:renderSubs, cats:renderCats})[TAB]();
 }
 
 function catOptions(kind, sel){
